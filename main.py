@@ -1,7 +1,7 @@
 import pygame
 from game.game_engine import GameEngine
 
-WIDTH, HEIGHT = 620, 380
+WIDTH, HEIGHT = 860, 380
 FPS = 60
 
 def main():

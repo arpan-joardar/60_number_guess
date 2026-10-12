@@ -4,14 +4,26 @@ from game.text_box import TextBox
 
 MIN_NUMBER = 1
 MAX_NUMBER = 100
+HISTORY_SIZE = 7
+
+LOW_COLOR = (80, 160, 240)
+HIGH_COLOR = (240, 100, 80)
+CORRECT_COLOR = (80, 220, 90)
+RESULT_STYLES = {
+    "low": ("TOO LOW", LOW_COLOR),
+    "high": ("TOO HIGH", HIGH_COLOR),
+    "correct": ("CORRECT", CORRECT_COLOR),
+}
 
 class GameEngine:
     def __init__(self, width, height):
         self.width = width
         self.height = height
+        self.history_rect = pygame.Rect(width - 230, 20, 210, height - 40)
+        self.center_x = self.history_rect.x // 2
 
-        self.input_box = TextBox(width // 2 - 110, 190, 120, 48)
-        self.submit_btn = pygame.Rect(width // 2 + 25, 190, 100, 48)
+        self.input_box = TextBox(self.center_x - 110, 190, 120, 48)
+        self.submit_btn = pygame.Rect(self.center_x + 25, 190, 100, 48)
 
         self.font_title = pygame.font.SysFont(None, 42)
         self.font_medium = pygame.font.SysFont(None, 28)
@@ -50,16 +62,19 @@ class GameEngine:
 
         if guess < self.secret_number:
             self.low = max(self.low, guess + 1)
+            self.history.append((guess, "low"))
             self.feedback_msg = f"TOO LOW! (Guess was {guess})"
-            self.feedback_color = (80, 160, 240)
+            self.feedback_color = LOW_COLOR
         elif guess > self.secret_number:
             self.high = min(self.high, guess - 1)
+            self.history.append((guess, "high"))
             self.feedback_msg = f"TOO HIGH! (Guess was {guess})"
-            self.feedback_color = (240, 100, 80)
+            self.feedback_color = HIGH_COLOR
         else:
             self.low = self.high = guess
+            self.history.append((guess, "correct"))
             self.feedback_msg = f"CORRECT! Found in {self.attempts} attempts."
-            self.feedback_color = (80, 220, 90)
+            self.feedback_color = CORRECT_COLOR
             self.game_won = True
 
     def reset(self):
@@ -67,6 +82,7 @@ class GameEngine:
         self.attempts = 0
         self.low = MIN_NUMBER
         self.high = MAX_NUMBER
+        self.history = []
         self.feedback_msg = f"Enter a number between {MIN_NUMBER} and {MAX_NUMBER}"
         self.feedback_color = (220, 220, 220)
         self.game_won = False
@@ -95,9 +111,9 @@ class GameEngine:
         else:
             label = f"Range: {self.low}"
         range_surf = self.font_medium.render(label, True, (235, 235, 240))
-        screen.blit(range_surf, (self.width // 2 - range_surf.get_width() // 2, 122))
+        screen.blit(range_surf, (self.center_x - range_surf.get_width() // 2, 122))
 
-        track = pygame.Rect(self.width // 2 - 200, 156, 400, 10)
+        track = pygame.Rect(self.center_x - 200, 156, 400, 10)
         span = MAX_NUMBER - MIN_NUMBER + 1
         start = track.x + (self.low - MIN_NUMBER) * track.width // span
         end = track.x + (self.high - MIN_NUMBER + 1) * track.width // span
@@ -110,15 +126,57 @@ class GameEngine:
         screen.blit(min_surf, (track.x - min_surf.get_width() - 10, label_y))
         screen.blit(max_surf, (track.right + 10, label_y))
 
+    def draw_indicator(self, screen, result, center):
+        x, y = center
+        if result == "high":
+            pygame.draw.polygon(screen, HIGH_COLOR, [(x, y - 6), (x - 6, y + 5), (x + 6, y + 5)])
+        elif result == "low":
+            pygame.draw.polygon(screen, LOW_COLOR, [(x, y + 6), (x - 6, y - 5), (x + 6, y - 5)])
+        else:
+            pygame.draw.circle(screen, CORRECT_COLOR, (x, y), 6)
+
+    def render_history(self, screen):
+        panel = self.history_rect
+        pygame.draw.rect(screen, (38, 43, 54), panel, border_radius=10)
+        pygame.draw.rect(screen, (62, 68, 82), panel, width=1, border_radius=10)
+
+        header_surf = self.font_medium.render("Recent Guesses", True, (235, 235, 240))
+        screen.blit(header_surf, (panel.centerx - header_surf.get_width() // 2, panel.y + 16))
+        pygame.draw.line(screen, (62, 68, 82), (panel.x + 14, panel.y + 46), (panel.right - 14, panel.y + 46))
+
+        if not self.history:
+            empty_surf = self.font_small.render("No guesses yet", True, (130, 135, 145))
+            screen.blit(empty_surf, (panel.centerx - empty_surf.get_width() // 2, panel.y + 66))
+            return
+
+        first_shown = max(len(self.history) - HISTORY_SIZE, 0)
+        for row, number in enumerate(range(len(self.history), first_shown, -1)):
+            guess, result = self.history[number - 1]
+            label, color = RESULT_STYLES[result]
+            row_rect = pygame.Rect(panel.x + 10, panel.y + 56 + row * 38, panel.width - 20, 32)
+            row_color = (56, 63, 78) if row == 0 else (46, 52, 64)
+            pygame.draw.rect(screen, row_color, row_rect, border_radius=6)
+            pygame.draw.rect(screen, color, (row_rect.x, row_rect.y, 4, row_rect.height),
+                             border_top_left_radius=6, border_bottom_left_radius=6)
+
+            number_surf = self.font_small.render(f"#{number}", True, (140, 145, 155))
+            screen.blit(number_surf, (row_rect.x + 12, row_rect.centery - number_surf.get_height() // 2))
+            guess_surf = self.font_medium.render(str(guess), True, (245, 245, 245))
+            screen.blit(guess_surf, (row_rect.x + 42, row_rect.centery - guess_surf.get_height() // 2))
+            self.draw_indicator(screen, result, (row_rect.x + 90, row_rect.centery))
+            label_surf = self.font_small.render(label, True, color)
+            screen.blit(label_surf, (row_rect.x + 104, row_rect.centery - label_surf.get_height() // 2))
+
     def render(self, screen):
         screen.fill((30, 34, 42))
 
         title_surf = self.font_title.render("Number Guessing Arena", True, (245, 245, 245))
-        screen.blit(title_surf, (self.width // 2 - title_surf.get_width() // 2, 35))
+        screen.blit(title_surf, (self.center_x - title_surf.get_width() // 2, 35))
 
         attempts_surf = self.font_medium.render(f"Attempts: {self.attempts}", True, (180, 185, 195))
-        screen.blit(attempts_surf, (self.width // 2 - attempts_surf.get_width() // 2, 88))
+        screen.blit(attempts_surf, (self.center_x - attempts_surf.get_width() // 2, 88))
         self.render_range(screen)
+        self.render_history(screen)
         self.input_box.render(screen)
 
         pygame.draw.rect(screen, (50, 150, 80), self.submit_btn, border_radius=6)
@@ -130,8 +188,8 @@ class GameEngine:
         )
 
         feedback_surf = self.font_medium.render(self.feedback_msg, True, self.feedback_color)
-        screen.blit(feedback_surf, (self.width // 2 - feedback_surf.get_width() // 2, 268))
+        screen.blit(feedback_surf, (self.center_x - feedback_surf.get_width() // 2, 268))
 
         if self.game_won:
             restart_surf = self.font_medium.render("Press [R] to Start a New Game", True, (255, 220, 80))
-            screen.blit(restart_surf, (self.width // 2 - restart_surf.get_width() // 2, 318))
+            screen.blit(restart_surf, (self.center_x - restart_surf.get_width() // 2, 318))
