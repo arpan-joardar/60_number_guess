@@ -4,6 +4,8 @@ from game.text_box import TextBox
 
 MIN_NUMBER = 1
 MAX_NUMBER = 100
+# 7 guesses are always enough to find a number in 1-100 by halving the range
+MAX_ATTEMPTS = 7
 HISTORY_SIZE = 7
 
 LOW_COLOR = (80, 160, 240)
@@ -29,15 +31,20 @@ class GameEngine:
         self.font_medium = pygame.font.SysFont(None, 28)
         self.font_btn = pygame.font.SysFont(None, 26)
         self.font_small = pygame.font.SysFont(None, 22)
+        self.font_big = pygame.font.SysFont(None, 72)
 
         self.reset()
+
+    @property
+    def round_over(self):
+        return self.game_won or self.game_over
 
     def show_warning(self, message):
         self.feedback_msg = message
         self.feedback_color = (250, 200, 70)
 
     def submit_guess(self):
-        if self.game_won:
+        if self.round_over:
             return
 
         text = self.input_box.text.strip()
@@ -77,6 +84,11 @@ class GameEngine:
             self.feedback_color = CORRECT_COLOR
             self.game_won = True
 
+        if not self.game_won and self.attempts >= MAX_ATTEMPTS:
+            self.game_over = True
+            self.feedback_msg = f"Out of attempts! The number was {self.secret_number}."
+            self.feedback_color = HIGH_COLOR
+
     def reset(self):
         self.secret_number = random.randint(MIN_NUMBER, MAX_NUMBER)
         self.attempts = 0
@@ -86,15 +98,18 @@ class GameEngine:
         self.feedback_msg = f"Enter a number between {MIN_NUMBER} and {MAX_NUMBER}"
         self.feedback_color = (220, 220, 220)
         self.game_won = False
+        self.game_over = False
         self.input_box.clear()
 
     def handle_event(self, event):
-        self.input_box.handle_event(event)
+        round_over = self.round_over
+        if not round_over:
+            self.input_box.handle_event(event)
 
         if event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 self.submit_guess()
-            elif event.key == pygame.K_r and self.game_won:
+            elif event.key == pygame.K_r and round_over:
                 self.reset()
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -167,13 +182,41 @@ class GameEngine:
             label_surf = self.font_small.render(label, True, color)
             screen.blit(label_surf, (row_rect.x + 104, row_rect.centery - label_surf.get_height() // 2))
 
+    def render_game_over(self, screen):
+        shade = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        shade.fill((10, 12, 16, 215))
+        screen.blit(shade, (0, 0))
+        self.render_history(screen)
+
+        card = pygame.Rect(0, 0, 440, 240)
+        card.center = (self.center_x, self.height // 2)
+        pygame.draw.rect(screen, (44, 32, 38), card, border_radius=12)
+        pygame.draw.rect(screen, HIGH_COLOR, card, width=2, border_radius=12)
+
+        title_surf = self.font_big.render("GAME OVER", True, HIGH_COLOR)
+        screen.blit(title_surf, (self.center_x - title_surf.get_width() // 2, card.y + 26))
+
+        used_surf = self.font_medium.render(f"You used all {MAX_ATTEMPTS} attempts.", True, (220, 220, 225))
+        screen.blit(used_surf, (self.center_x - used_surf.get_width() // 2, card.y + 92))
+
+        prefix_surf = self.font_title.render("The number was ", True, (235, 235, 240))
+        number_surf = self.font_title.render(str(self.secret_number), True, (255, 220, 80))
+        x = self.center_x - (prefix_surf.get_width() + number_surf.get_width()) // 2
+        screen.blit(prefix_surf, (x, card.y + 130))
+        screen.blit(number_surf, (x + prefix_surf.get_width(), card.y + 130))
+
+        restart_surf = self.font_medium.render("Press [R] to Try Again", True, (255, 220, 80))
+        screen.blit(restart_surf, (self.center_x - restart_surf.get_width() // 2, card.y + 192))
+
     def render(self, screen):
         screen.fill((30, 34, 42))
 
         title_surf = self.font_title.render("Number Guessing Arena", True, (245, 245, 245))
         screen.blit(title_surf, (self.center_x - title_surf.get_width() // 2, 35))
 
-        attempts_surf = self.font_medium.render(f"Attempts: {self.attempts}", True, (180, 185, 195))
+        attempts_left = MAX_ATTEMPTS - self.attempts
+        attempts_color = HIGH_COLOR if attempts_left <= 2 and not self.game_won else (180, 185, 195)
+        attempts_surf = self.font_medium.render(f"Attempts: {self.attempts} / {MAX_ATTEMPTS}", True, attempts_color)
         screen.blit(attempts_surf, (self.center_x - attempts_surf.get_width() // 2, 88))
         self.render_range(screen)
         self.render_history(screen)
@@ -193,3 +236,5 @@ class GameEngine:
         if self.game_won:
             restart_surf = self.font_medium.render("Press [R] to Start a New Game", True, (255, 220, 80))
             screen.blit(restart_surf, (self.center_x - restart_surf.get_width() // 2, 318))
+        elif self.game_over:
+            self.render_game_over(screen)
