@@ -70,13 +70,14 @@ class GameEngine:
         self.input_box.handle_event(event)
 
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_RETURN:
+            if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 self.submit_guess()
             elif event.key == pygame.K_r and self.game_won:
                 self.reset()
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.submit_btn.collidepoint(event.pos):
+                self.input_box.active = True
                 self.submit_guess()
 
     def update(self):
