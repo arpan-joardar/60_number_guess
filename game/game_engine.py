@@ -19,12 +19,31 @@ class GameEngine:
         self.font_medium = pygame.font.SysFont(None, 28)
         self.font_btn = pygame.font.SysFont(None, 26)
 
+    def show_warning(self, message):
+        self.feedback_msg = message
+        self.feedback_color = (250, 200, 70)
+
     def submit_guess(self):
         if self.game_won:
             return
-            
-        guess = int(self.input_box.text)
-        
+
+        text = self.input_box.text.strip()
+        if not text:
+            self.show_warning("Please enter a number first!")
+            return
+
+        try:
+            guess = int(text)
+        except ValueError:
+            self.input_box.clear()
+            self.show_warning("Invalid input! Digits only.")
+            return
+
+        if not 1 <= guess <= 100:
+            self.input_box.clear()
+            self.show_warning(f"{guess} is out of range! Pick 1 - 100.")
+            return
+
         self.attempts += 1
         self.input_box.clear()
 
