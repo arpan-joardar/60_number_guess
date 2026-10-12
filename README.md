@@ -1,5 +1,8 @@
 # Number Guessing Repair Lab
 
+> **Lab 4 submission:** the before/after gameplay videos, the updated code and a summary of the
+> changes are in [`Lab-4/`](Lab-4/).
+
 This project is an interactive number deduction game using **Pygame**. It introduces students to string-to-integer parsing safety, boundary and input sanitization, dynamic range feedback, and text-input UI widgets within an object-oriented codebase.
 ---
 
@@ -35,7 +38,7 @@ pip install pygame
 python main.py
 ```
 
-**Controls:** Type digits into the text box and press Return (or click SUBMIT) to guess. Press R to start a new game after winning.
+**Controls:** Type digits into the text box and press Return (or click SUBMIT) to guess. Press R to start a new game after winning or after a Game Over.
 
 
 ## Tasks to Complete
@@ -75,6 +78,10 @@ number_guess/
 ├── game/
 │   ├── game_engine.py
 │   └── text_box.py
+├── Lab-4/
+│   ├── code/          # copy of the updated game
+│   ├── videos/        # before/after gameplay recordings
+│   └── README.md      # summary of the fixes and features
 ├── main.py
 └── README.md
 ```
